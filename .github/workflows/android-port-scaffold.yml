@@ -1,0 +1,42 @@
+name: Android port scaffold
+
+on:
+  pull_request:
+    paths:
+      - "ANDROID_PORTING.md"
+      - "FREEBUFF.md"
+      - ".agent/**"
+      - "AGENTS.md"
+      - ".github/workflows/android-port-scaffold.yml"
+  push:
+    branches:
+      - "android-port/**"
+    paths:
+      - "ANDROID_PORTING.md"
+      - "FREEBUFF.md"
+      - ".agent/**"
+      - "AGENTS.md"
+      - ".github/workflows/android-port-scaffold.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-scaffold:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Validate required porting instructions
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s AGENTS.md
+          test -s ANDROID_PORTING.md
+          test -s FREEBUFF.md
+          test -s .agent/skills/android-port/SKILL.md
+          grep -q "Electron" ANDROID_PORTING.md
+          grep -q "arm64-v8a" ANDROID_PORTING.md
+          grep -q "GUI testing" FREEBUFF.md
+          git diff --check
