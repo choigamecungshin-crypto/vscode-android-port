@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- WebViewAssetLoader serves content over HTTPS from a localhost origin.
+         Allow that origin so same-origin requests (extension host iframe, etc.)
+         can load without cleartext restrictions. -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">localhost</domain>
+    </domain-config>
+</network-security-config>

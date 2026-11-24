@@ -1,4 +1,5 @@
 packages:
+  - build
   - .eslint-plugin-local
   - .vscode/extensions/vscode-selfhost-import-aid
   - .vscode/extensions/vscode-selfhost-test-provider

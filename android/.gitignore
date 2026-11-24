@@ -1,0 +1,18 @@
+# Gradle / Android build output
+build/
+.gradle/
+.kotlin/
+captures/
+local.properties
+*.apk
+*.aab
+*.ap_
+*.dex
+*.hprof
+
+# IDE
+.idea/
+*.iml
+
+# Generated VS Code Mobile web bundle, copied in by scripts/sync-android-assets.mjs
+app/src/main/assets/vscode-mobile/

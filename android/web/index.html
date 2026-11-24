@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<!--
+  Android shell host page for the VS Code Mobile bundle.
+
+  `bundle-mobile` publishes only out/, node_modules/, extensions/ and mobile.json —
+  there is no HTML entry in out-mobile, because the web host normally supplies it
+  (see scripts/code-sessions-web.js). This file is that host for the Android WebView:
+  it mirrors the mobile branch of getSessionsHTML(), loading the packaged
+  out/vs/sessions/agents.web.mobile.main.internal.{js,css} named in mobile.json.
+
+  It is loaded from https://appassets.androidplatform.net/assets/vscode-mobile/index.html,
+  which WebViewAssetLoader serves from the APK assets. The URLs below are absolute
+  because FileAccess.toUri() treats a scheme-less _VSCODE_FILE_ROOT as a filesystem
+  path (src/vs/base/common/network.ts), and the workbench resolves media, preload
+  modules and workers against it.
+
+  sync-android-assets.mjs copies this file to assets/vscode-mobile/index.html.
+-->
+<html>
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+	<meta name="apple-mobile-web-app-capable" content="yes" />
+	<meta name="mobile-web-app-capable" content="yes" />
+	<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+	<title>Agents</title>
+	<link rel="stylesheet" href="https://appassets.androidplatform.net/assets/vscode-mobile/out/vs/sessions/agents.web.mobile.main.internal.css" />
+	<script>
+		// Same contract as the dev host, but absolute: the bundle derives every
+		// media/preload/worker URL from this root.
+		globalThis._VSCODE_FILE_ROOT = 'https://appassets.androidplatform.net/assets/vscode-mobile/out';
+	</script>
+	<!-- The packaged message table (mobile.json entrypoints.nls). Without it
+	     nls.localize() falls back to the untranslated keys. -->
+	<script src="https://appassets.androidplatform.net/assets/vscode-mobile/out/nls.messages.js"></script>
+</head>
+<body aria-label="">
+	<script type="module">
+		import { create, URI } from 'https://appassets.androidplatform.net/assets/vscode-mobile/out/vs/sessions/agents.web.mobile.main.internal.js';
+
+		create(document.body, {
+			productConfiguration: {
+				nameShort: 'Agents',
+				nameLong: 'Agents',
+				enableTelemetry: false,
+			},
+			workspaceProvider: {
+				workspace: undefined,
+				open: async () => false,
+				payload: [['isSessionsWindow', 'true']],
+			},
+		}).catch(error => {
+			console.error('[android-shell] workbench failed to start:', error);
+		});
+	</script>
+</body>
+</html>
