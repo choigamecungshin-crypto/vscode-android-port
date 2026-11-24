@@ -48,21 +48,29 @@ jobs:
 
       - name: Install dependencies
         run: |
-          set -e
+          set -o pipefail
 
+          status=1
           for i in {1..5}; do
-            pnpm install --frozen-lockfile && break
+            if pnpm install --frozen-lockfile --reporter=append-only 2>&1 | tee /tmp/install.log; then
+              status=0
+              break
+            fi
             if [ $i -eq 5 ]; then
               echo "pnpm install failed too many times" >&2
-              exit 1
+              break
             fi
             echo "pnpm install failed $i, trying again..."
+            sleep 10
           done
+          exit $status
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Bundle the VS Code mobile workbench
-        run: BUILD_SOURCEVERSION="$GITHUB_SHA" pnpm run bundle-mobile
+        run: |
+          set -o pipefail
+          BUILD_SOURCEVERSION="$GITHUB_SHA" pnpm run bundle-mobile 2>&1 | tee /tmp/bundle.log
 
       - name: Copy the mobile bundle into the Android assets
         run: node android/scripts/sync-android-assets.mjs
@@ -81,7 +89,9 @@ jobs:
 
       - name: Assemble the debug APK
         working-directory: android
-        run: ./gradlew :app:assembleDebug --no-daemon --stacktrace
+        run: |
+          set -o pipefail
+          ./gradlew :app:assembleDebug --no-daemon --stacktrace 2>&1 | tee /tmp/gradle.log
 
       - name: Verify the APK contains the mobile bundle
         run: |
@@ -99,3 +109,29 @@ jobs:
           name: vscode-android-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 14
+
+      # The job summary is readable without a GitHub sign-in, unlike the step logs.
+      - name: Collect failure diagnostics
+        if: failure()
+        run: |
+          {
+            echo '### Android APK build diagnostics'
+            for f in /tmp/install.log /tmp/bundle.log /tmp/gradle.log; do
+              if [ -f "$f" ]; then
+                echo "#### \`$f\` (last 80 lines)"
+                echo '```'
+                tail -80 "$f"
+                echo '```'
+              fi
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ -f /tmp/install.log ]; then
+            echo "::error title=Install dependencies failed::$(tail -20 /tmp/install.log | tr '\n' ' ' | cut -c1-900)"
+          fi
+          if [ -f /tmp/bundle.log ]; then
+            echo "::error title=Bundle mobile failed::$(tail -20 /tmp/bundle.log | tr '\n' ' ' | cut -c1-900)"
+          fi
+          if [ -f /tmp/gradle.log ]; then
+            echo "::error title=Gradle assembleDebug failed::$(tail -20 /tmp/gradle.log | tr '\n' ' ' | cut -c1-900)"
+          fi
