@@ -127,11 +127,11 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
           if [ -f /tmp/install.log ]; then
-            echo "::error title=Install dependencies failed::$(tail -20 /tmp/install.log | tr '\n' ' ' | cut -c1-900)"
+            echo "::error title=Install dependencies failed::$(tail -20 /tmp/install.log | tr '\n' ' ' | cut -c1-4000)"
           fi
           if [ -f /tmp/bundle.log ]; then
-            echo "::error title=Bundle mobile failed::$(tail -20 /tmp/bundle.log | tr '\n' ' ' | cut -c1-900)"
+            echo "::error title=Bundle mobile failed::$(tail -20 /tmp/bundle.log | tr '\n' ' ' | cut -c1-4000)"
           fi
           if [ -f /tmp/gradle.log ]; then
-            echo "::error title=Gradle assembleDebug failed::$(tail -20 /tmp/gradle.log | tr '\n' ' ' | cut -c1-900)"
+            echo "::error title=Gradle assembleDebug failed::$(tail -20 /tmp/gradle.log | tr '\n' ' ' | cut -c1-4000)"
           fi
