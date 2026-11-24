@@ -1,0 +1,101 @@
+name: Android APK
+
+# Builds the ARM64 debug APK of the Android shell (M1.5): bundles the VS Code mobile
+# web workbench into out-mobile/, copies it into the shell's assets and assembles the
+# APK with the Gradle wrapper. The APK is uploaded as a workflow artifact and is never
+# committed to the repository.
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/android-apk.yml'
+      - 'android/**'
+      - 'build/next/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+
+permissions:
+  contents: read
+
+env:
+  ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+  PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+
+jobs:
+  apk:
+    name: Debug APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Setup pnpm
+        uses: ./.github/actions/setup-pnpm
+
+      # Installs the apt packages of packages.txt, which include libkrb5-dev (kerberos).
+      - name: Install system packages
+        uses: ./.github/actions/install-linux-packages
+
+      - name: Install dependencies
+        run: |
+          set -e
+
+          for i in {1..5}; do
+            pnpm install --frozen-lockfile && break
+            if [ $i -eq 5 ]; then
+              echo "pnpm install failed too many times" >&2
+              exit 1
+            fi
+            echo "pnpm install failed $i, trying again..."
+          done
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Bundle the VS Code mobile workbench
+        run: BUILD_SOURCEVERSION="$GITHUB_SHA" pnpm run bundle-mobile
+
+      - name: Copy the mobile bundle into the Android assets
+        run: node android/scripts/sync-android-assets.mjs
+
+      - name: Setup JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android platform and build tools
+        run: sdkmanager --install 'platforms;android-36' 'build-tools;36.1.0' 'platform-tools'
+
+      - name: Assemble the debug APK
+        working-directory: android
+        run: ./gradlew :app:assembleDebug --no-daemon --stacktrace
+
+      - name: Verify the APK contains the mobile bundle
+        run: |
+          set -euo pipefail
+          apk=android/app/build/outputs/apk/debug/app-debug.apk
+          ls -l "$apk"
+          entries=$(unzip -l "$apk" | grep -c 'assets/vscode-mobile/' || true)
+          echo "assets/vscode-mobile entries: $entries"
+          test "$entries" -gt 1
+          unzip -p "$apk" assets/vscode-mobile/index.html | grep -q 'appassets.androidplatform.net'
+
+      - name: Upload the debug APK
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: vscode-android-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14
